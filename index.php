@@ -178,7 +178,7 @@ $_CONFIG['show_load_time'] = true;
 // The time format for the "last changed" column.
 // Default: $_CONFIG['time_format'] = "d.m.y H:i:s";
 //
-$_CONFIG['time_format'] = "d.m.y H:i:s";
+$_CONFIG['time_format'] = "Y-m-d H:i:s";
 
 //
 // Kodeering, mida lehel kasutatakse. 
@@ -200,7 +200,11 @@ $_CONFIG['charset'] = "UTF-8";
 // The array of folder names that will be hidden from the list.
 // Default: $_CONFIG['hidden_dirs'] = array();
 //
-$_CONFIG['hidden_dirs'] = array();
+$_CONFIG['hidden_dirs'] = array(
+	"\$RECYCLE.BIN",
+	"RECYCLED",
+	"RECYCLER",
+	"System Volume Information");
 
 //
 // Failide varjamine. Failide nimed mida lehel ei kuvata.
@@ -209,7 +213,19 @@ $_CONFIG['hidden_dirs'] = array();
 // Filenames that will be hidden from the list.
 // Default: $_CONFIG['hidden_files'] = array(".ftpquota", "index.php", "index.php~", ".htaccess", ".htpasswd");
 //
-$_CONFIG['hidden_files'] = array(".ftpquota", "index.php", "index.php~", ".htaccess", ".htpasswd");
+$_CONFIG['hidden_files'] = array(
+	".ftpquota",
+	"index.php",
+	"index.php~",
+	".htaccess",
+	".htpasswd");
+
+//
+// Extensions that will be shown in the list.
+// Default: $_CONFIG['hidden_files'] = array();
+// All extensions will be shown if the array is empty.
+//
+$_CONFIG['show_extensions'] = array('mts', 'mod', 'mov', 'mpg', 'mp4', 'wmv', 'asf');
 
 //
 // Määra kas lehe nägemiseks peab sisse logima.
@@ -348,6 +364,53 @@ $_CONFIG['starting_dir'] = ".";
 // Default: $_CONFIG['basedir'] = "";
 //
 $_CONFIG['basedir'] = "";
+
+if (1) {
+	$drive = 'e:';
+	$_CONFIG['basedir'] = $drive.'/';
+	
+	if ($_SERVER['REDIRECT_STATUS']	== 404) {
+		header('HTTP/1.1 200 OK');
+		$install_path = str_replace("\\",'/',dirname(__FILE__));
+		$doc_root = $_SERVER['DOCUMENT_ROOT'];
+		$from_root = str_replace($doc_root,'',$install_path);
+		$filepath = str_replace('//','/',$_CONFIG['basedir'].str_replace($from_root,'',$_SERVER['REDIRECT_URL']));
+		if (is_file($filepath)) {
+			$height = isset($_GET['height']) ? intval($_GET['height']) : 0;
+			$width = isset($_GET['width']) ? intval($_GET['width']) : 240;
+			$frame = isset($_GET['frame']) ? intval($_GET['frame']) : 5;
+			
+			if ($ffmpegInstance = new ffmpeg_movie($filepath)) {		
+				$ffmpegFrame = $ffmpegInstance->getFrame($frame);
+				$ffmpegImage = $ffmpegFrame->toGDImage();
+				$par = $ffmpegInstance->getPixelAspectRatio();
+				if (!$par) $par = 1;
+				$width = $ffmpegInstance->getFrameWidth();
+				$height = $ffmpegInstance->getFrameHeight();
+				$destwidth = $width;
+				while ($destwidth > 384) {
+					$destwidth = round($destwidth / 2);
+				}
+				$destheight = round($height * $destwidth / $width / $par);
+				
+				$ffmpegDest = imagecreatetruecolor($destwidth,$destheight);
+				imagecopyresized($ffmpegDest, $ffmpegImage, 0, 0, 0, 0, $destwidth, $destheight, $width, $height);
+				imagedestroy($ffmpegImage);
+				
+				header("Pragma: no-cache");
+				header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+				header("Cache-control: no-cache, no-store, must-revalidate, max_age=0");
+				header("Content-type: image/png");
+				imagepng($ffmpegDest);
+				imagedestroy($ffmpegDest);
+				exit();
+			}				
+		}
+		if (is_dir($filepath)) {
+			//$_CONFIG['basedir'] = $movie;
+		}
+	}
+}
 
 //
 // Suured failid. Kui sul on failiruumis väga suured failid (>4GB), siis on see vajalik
@@ -938,43 +1001,6 @@ BODY {
 	font-size:small;
 }
 
-A {
-	color: #000000;
-	text-decoration: none;
-}
-
-A:hover {
-	text-decoration: underline;
-}
-
-#top {
-	width:100%;
-	padding-bottom: 20px;
-}
-
-#top a span, #top a:hover, #top a span:hover{
-	color:#68a9d2;
-	font-weight:bold;
-	text-align:center;
-	font-size:large;
-}
-
-#top a {
-	display:block;
-	padding:20px 0 0 0;
-}
-
-#top span {
-	display:block;
-}
-
-div.subtitle{
-	width:80%;
-	margin: 0 auto;
-	color:#68a9d2;
-	text-align:center;
-}
-
 #frame {
 	border: 1px solid #CDD2D6;
 	text-align:left;
@@ -984,7 +1010,44 @@ div.subtitle{
 	overflow:hidden;
 }
 
-#error {
+#frame A {
+	color: #000000;
+	text-decoration: none;
+}
+
+#frame A:hover {
+	text-decoration: underline;
+}
+
+#frame #top {
+	width:100%;
+	padding-bottom: 20px;
+}
+
+#frame #top a span, #frame #top a:hover, #frame #top a span:hover{
+	color:#68a9d2;
+	font-weight:bold;
+	text-align:center;
+	font-size:large;
+}
+
+#frame #top a {
+	display:block;
+	padding:20px 0 0 0;
+}
+
+#frame #top span {
+	display:block;
+}
+
+#frame div.subtitle{
+	width:80%;
+	margin: 0 auto;
+	color:#68a9d2;
+	text-align:center;
+}
+
+#frame #error {
 	max-width:450px;
 	background-color:#FFE4E1;
 	color:#000000;
@@ -995,11 +1058,11 @@ div.subtitle{
 	border: 1px dotted #CDD2D6;
 }
 
-input {
+#frame input {
 	border: 1px solid #CDD2D6;
 }
 
-.bar{
+#frame .bar{
 	width:100%;
 	clear:both;
 	height:1px;
@@ -1048,7 +1111,7 @@ table.table tr.header img {
 	vertical-align:bottom;
 }
 
-table img{
+table.table img{
 	border:0;
 }
 
@@ -1118,14 +1181,14 @@ table img{
 
 /* Breadcrumbs */
 
-div.breadcrumbs {
+#frame div.breadcrumbs {
 	display:block;
 	padding:1px 3px;
 	color:#cccccc;
 	font-size:x-small;
 }
 
-div.breadcrumbs a{
+#frame div.breadcrumbs a{
 	display:inline-block;
 	color:#cccccc;
 	padding:2px 0;
@@ -1530,6 +1593,7 @@ $_IMAGES["ogg"] = $_IMAGES["audio"];
 $_IMAGES["flac"] = $_IMAGES["audio"];
 $_IMAGES["mpeg"] = $_IMAGES["video"];
 $_IMAGES["mpg"] = $_IMAGES["video"];
+$_IMAGES["mts"] = $_IMAGES["video"];
 $_IMAGES["odg"] = $_IMAGES["vectorgraphics"];
 $_IMAGES["odp"] = $_IMAGES["presentation"];
 $_IMAGES["ods"] = $_IMAGES["spreadsheet"];
@@ -1691,6 +1755,8 @@ class ImageServer
 
 		if(File::isPdfFile($file))
 			$image = ImageServer::openPdf($file);
+		elseif(File::isVideoFile($file))
+			$image = ImageServer::openVideoImg($file);
 		else
 			$image = ImageServer::openImage($file);
 		if($image == null)
@@ -1758,8 +1824,9 @@ class ImageServer
 	//
 	// A helping function for opening different types of image files
 	//
-	public static function openImage ($file) 
+	public static function openImage ($filepath) 
 	{
+		$file = EncodeExplorer::getConfig("basedir").$filepath;
 	    $size = getimagesize($file);
 	    switch($size["mime"])
 	    {
@@ -1773,9 +1840,33 @@ class ImageServer
 				$im = imagecreatefrompng($file);
 			break;
 			default:
-				$im=null;
+				$im = ImageCreateTrueColor(200, 100);
 			break;
 	    }
+	    return $im;
+	}
+
+	//
+	// A helping function for opening thumbnails of different types of video files
+	//
+	public static function openVideoImg($filepath) 
+	{
+		$file = EncodeExplorer::getConfig("basedir").$filepath;
+		$ffmpegInstance = new ffmpeg_movie($file);
+		$ffmpegFrame = $ffmpegInstance->getFrame(5);
+		$ffmpegImage = $ffmpegFrame->toGDImage();
+		$par = $ffmpegInstance->getPixelAspectRatio();
+		if (!$par) $par = 1;
+		$width = $ffmpegInstance->getFrameWidth();
+		$height = $ffmpegInstance->getFrameHeight();
+		$destwidth = $width;
+		while ($destwidth > 384) {
+			$destwidth = round($destwidth / 2);
+		}
+		$destheight = round($height * $destwidth / $width / $par);
+		
+		$im = imagecreatetruecolor($destwidth,$destheight);
+		imagecopyresized($im, $ffmpegImage, 0, 0, 0, 0, $destwidth, $destheight, $width, $height);
 	    return $im;
 	}
 }
@@ -2017,12 +2108,12 @@ class FileManager
 				// The target directory is not writable
 				$encodeExplorer->setErrorString("upload_dir_not_writable");
 			}
-			else if(!mkdir($location->getDir(true, false, false, 0).$dirname, 0777))
+			else if(!mkdir($location->getDir(false, false, false, 0).$dirname, 0777))
 			{
 				// Error creating a new directory
 				$encodeExplorer->setErrorString("new_dir_failed");
 			}
-			else if(!chmod($location->getDir(true, false, false, 0).$dirname, 0777))
+			else if(!chmod($location->getDir(false, false, false, 0).$dirname, 0777))
 			{
 				// Error applying chmod 777
 				$encodeExplorer->setErrorString("chmod_dir_failed");
@@ -2030,8 +2121,8 @@ class FileManager
 			else
 			{
 				// Directory successfully created, sending e-mail notification
-				Logger::logCreation($location->getDir(true, false, false, 0).$dirname, true);
-				Logger::emailNotification($location->getDir(true, false, false, 0).$dirname, false);
+				Logger::logCreation($location->getDir(false, false, false, 0).$dirname, true);
+				Logger::emailNotification($location->getDir(false, false, false, 0).$dirname, false);
 			}
 		}
 	}
@@ -2080,8 +2171,8 @@ class FileManager
 		else
 		{
 			chmod($upload_file, 0755);
-			Logger::logCreation($location->getDir(true, false, false, 0).$name, false);
-			Logger::emailNotification($location->getDir(true, false, false, 0).$name, true);
+			Logger::logCreation($location->getDir(false, false, false, 0).$name, false);
+			Logger::emailNotification($location->getDir(false, false, false, 0).$name, true);
 		}
 	}
 	
@@ -2183,7 +2274,7 @@ class Dir
 	function debug()
 	{
 		print("Dir name (htmlspecialchars): ".$this->getName()."\n");
-		print("Dir location: ".$this->location->getDir(true, false, false, 0)."\n");
+		print("Dir location: ".$this->location->getDir(false, false, false, 0)."\n");
 	}
 }
 
@@ -2206,10 +2297,9 @@ class File
 	{
 		$this->name = $name;
 		$this->location = $location;
-		
-		$this->type = File::getFileType($this->location->getDir(true, false, false, 0).$this->getName());
-		$this->size = File::getFileSize($this->location->getDir(true, false, false, 0).$this->getName());
-		$this->modTime = filemtime($this->location->getDir(true, false, false, 0).$this->getName());
+		$this->type = File::getFileType($this->location->getDir(false, false, false, 0).$this->getName());
+		$this->size = File::getFileSize($this->location->getDir(false, false, false, 0).$this->getName());
+		$this->modTime = filemtime(EncodeExplorer::getConfig("basedir").$this->location->getDir(false, false, false, 0).$this->getName());
 	}
 
 	function getName()
@@ -2247,7 +2337,7 @@ class File
 	// 
 	public static function getFileSize($file)
 	{
-		$sizeInBytes = filesize($file);
+		$sizeInBytes = filesize(EncodeExplorer::getConfig("basedir").$file);
 
 		// If filesize() fails (with larger files), try to get the size from unix command line.
 		if (EncodeExplorer::getConfig("large_files") == true || !$sizeInBytes || $sizeInBytes < 0) {
@@ -2291,7 +2381,7 @@ class File
 	function debug()
 	{
 		print("File name: ".$this->getName()."\n");
-		print("File location: ".$this->location->getDir(true, false, false, 0)."\n");
+		print("File location: ".$this->location->getDir(false, false, false, 0)."\n");
 		print("File size: ".$this->size."\n");
 		print("File modTime: ".$this->modTime."\n");
 	}
@@ -2300,6 +2390,22 @@ class File
 	{
 		$type = $this->getType();
 		if($type == "png" || $type == "jpg" || $type == "gif" || $type == "jpeg")
+			return true;
+		return false;
+	}
+	
+	function isVideo()
+	{
+		$type = strtolower($this->getType());
+		if($type == 'mts' || $type == 'mod' || $type == 'mov' || $type == 'mpg' || $type == 'mp4' || $type == 'wmv' || $type == 'asf')
+			return true;
+		return false;
+	}
+	
+	public static function isVideoFile($file)
+	{
+		$type = strtolower(File::getFileType($file));
+		if($type == 'mts' || $type == 'mod' || $type == 'mov' || $type == 'mpg' || $type == 'mp4' || $type == 'wmv' || $type == 'asf')
 			return true;
 		return false;
 	}
@@ -2320,7 +2426,7 @@ class File
 	
 	function isValidForThumb()
 	{
-		if($this->isImage() || ($this->isPdf() && ImageServer::isEnabledPdf()))
+		if($this->isImage() || ($this->isPdf() && ImageServer::isEnabledPdf()) || ($this->isVideo() && extension_loaded('ffmpeg')))
 			return true;
 		return false;
 	}
@@ -2378,7 +2484,8 @@ class Location
 
 	function getFullPath()
 	{
-		return (strlen(EncodeExplorer::getConfig('basedir')) > 0?EncodeExplorer::getConfig('basedir'):dirname($_SERVER['SCRIPT_FILENAME']))."/".$this->getDir(true, false, false, 0);
+		$fullpath = (strlen(EncodeExplorer::getConfig('basedir')) > 0?EncodeExplorer::getConfig('basedir'):dirname($_SERVER['SCRIPT_FILENAME']))."/".$this->getDir(false, false, false, 0);
+		return $fullpath;
 	}
 
 	//
@@ -2387,9 +2494,9 @@ class Location
 	function debug()
 	{
 		print_r($this->path);
-		print("Dir with prefix: ".$this->getDir(true, false, false, 0)."\n");
+		print("Dir with prefix: ".$this->getDir(false, false, false, 0)."\n");
 		print("Dir without prefix: ".$this->getDir(false, false, false, 0)."\n");
-		print("Upper dir with prefix: ".$this->getDir(true, false, false, 1)."\n");
+		print("Upper dir with prefix: ".$this->getDir(false, false, false, 1)."\n");
 		print("Upper dir without prefix: ".$this->getDir(false, false, false, 1)."\n");
 	}
 
@@ -2416,7 +2523,7 @@ class Location
 	{
 		for($i = 0; $i < count($this->path); $i++)
 		{
-			if(strcmp($this->getDir(true, false, false, $i), $checkPath) == 0)
+			if(strcmp($this->getDir(false, false, false, $i), $checkPath) == 0)
 				return true;
 		}
 		return false;
@@ -2443,7 +2550,7 @@ class Location
 	
 	function isWritable()
 	{
-		return is_writable($this->getDir(true, false, false, 0));
+		return is_writable($this->getDir(false, false, false, 0));
 	}
 	
 	public static function isDirWritable($dir)
@@ -2526,6 +2633,8 @@ class EncodeExplorer
 	function readDir()
 	{
 		global $encodeExplorer;
+		// We might limit the file extensions that we will show
+		$show_extensions = EncodeExplorer::getConfig('show_extensions');
 		//
 		// Reading the data of files and directories
 		//
@@ -2537,13 +2646,25 @@ class EncodeExplorer
 			{
 				if($object != "." && $object != "..") 
 				{
-					if(is_dir($this->location->getDir(true, false, false, 0)."/".$object))
+					$file = EncodeExplorer::getConfig("basedir").$this->location->getDir(false, false, false, 0).$object;
+					//echo '<pre>'.$file.' '.print_r(stat($file),true)."</pre>\n";
+					if(is_dir(EncodeExplorer::getConfig("basedir").$this->location->getDir(false, false, false, 0).$object))
 					{
 						if(!in_array($object, EncodeExplorer::getConfig('hidden_dirs')))
 							$this->dirs[] = new Dir($object, $this->location);
 					}
 					else if(!in_array($object, EncodeExplorer::getConfig('hidden_files')))
-						$this->files[] = new File($object, $this->location);
+					{
+						if (count($show_extensions))
+						{
+							if(in_array(File::getFileExtension(EncodeExplorer::getConfig("basedir").$this->location->getDir(false, false, false, 0).$object), $show_extensions))
+								$this->files[] = new File($object, $this->location);
+						}
+						else
+						{
+							$this->files[] = new File($object, $this->location);
+						}
+					}						
 				}
 			}
 			closedir($open_dir);
@@ -2675,7 +2796,7 @@ class EncodeExplorer
 
 	function formatModTime($time)
 	{
-		$timeformat = "d.m.y H:i:s";
+		$timeformat = "YY-m-d H:i:s";
 		if(EncodeExplorer::getConfig("time_format") != null && strlen(EncodeExplorer::getConfig("time_format")) > 0)
 			$timeformat = EncodeExplorer::getConfig("time_format");
 		return date($timeformat, $time);
@@ -2698,7 +2819,7 @@ class EncodeExplorer
 	// 
 	function debug()
 	{
-		print("Explorer location: ".$this->location->getDir(true, false, false, 0)."\n");
+		print("Explorer location: ".$this->location->getDir(false, false, false, 0)."\n");
 		for($i = 0; $i < count($this->dirs); $i++)
 			$this->dirs[$i]->output();
 		for($i = 0; $i < count($this->files); $i++)
@@ -2865,7 +2986,7 @@ $(document).ready(function() {
 		}
 		
 		$("a.file").click(function(){
-			logFileClick("<?php print $this->location->getDir(true, true, false, 0);?>" + $(this).html());
+			logFileClick("<?php print $this->location->getDir(false, true, false, 0);?>" + $(this).html());
 			return true;
 		});
 <?php 
@@ -3169,7 +3290,7 @@ if(!ImageServer::showImage() && !Logger::logQuery())
 	$location->init();
 	if(GateKeeper::isAccessAllowed())
 	{
-		Logger::logAccess($location->getDir(true, false, false, 0), true);
+		Logger::logAccess($location->getDir(false, false, false, 0), true);
 		$fileManager = new FileManager();
 		$fileManager->run($location);
 	}
